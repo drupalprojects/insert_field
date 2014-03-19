@@ -1,0 +1,5 @@
+name = Insert Field
+description = Allows Fields to be Inserted into Text Fields
+core = 7.x
+
+dependencies[] = text
