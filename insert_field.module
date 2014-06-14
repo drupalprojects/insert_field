@@ -1,1 +1,235 @@
 <?php
+
+/**
+ * Implements hook_form_FROM_ID_alter().
+ *
+ * Alters the Field UI Form for easy insert configuration.
+ */
+function insert_field_form_field_ui_field_overview_form_alter(&$form, &$form_state, $entity_type, $bundle) {
+
+  // Get the Field Instances.
+  $instances = field_info_instances($form['#entity_type'], $form['#bundle']);
+
+  // Loop through all of the Fields.
+  foreach (element_children($form['fields']) as $field) {
+
+    // Do not allow the Extra Fields to be inserted.
+    if ($form['fields'][$field]['#row_type'] == 'extra_field') {
+      $form['fields'][$field]['#attributes']['class'][] = 'tabledrag-root';
+      continue;
+    }
+
+    // Get the info for the current field.
+    $info = field_info_field($field);
+
+    // Fields can be inserted into Long Text fields.
+    $types = array(
+      'text_long',
+      'text_with_summary',
+    );
+
+    // Remove the class that prevents them from having children
+    // and create an array of potential parrents.
+    if (in_array($info['type'], $types)) {
+      unset($form['fields'][$field]['#attributes']['class'][1]);
+      $parents[$field] = $field;
+    }
+
+  }
+
+  // Loop through all of the Fields.
+  foreach (element_children($form['fields']) as $field) {
+
+    // If this is an Extra Field, it cannot have any parents.
+    if ($form['fields'][$field]['#row_type'] == 'extra_field') {
+      continue;
+    }
+
+    // Add the Parent Options to the Field.
+    $parent = NULL;
+    if (!empty($instances[$field]['widget']['parent'])) {
+      $parent = $instances[$field]['widget']['parent'];
+    }
+    $form['fields'][$field]['parent_wrapper']['parent']['#options'] = $parents;
+    $form['fields'][$field]['parent_wrapper']['parent']['#default_value'] = $parent;
+
+  }
+
+  // Add a submit callback.
+  $form['#submit'][] = 'insert_field_field_ui_submit';
+
+}
+
+/**
+ * Field UI Form Submit Callback.
+ *
+ * Saves the Field Parent.
+ */
+function insert_field_field_ui_submit($form, &$form_state) {
+  $form_values = $form_state['values']['fields'];
+  $entity_type = $form['#entity_type'];
+  $bundle = $form['#bundle'];
+
+  // Update field parents.
+  foreach ($form_values as $key => $values) {
+
+    // If the field is an Extra Field, it cannot have a parent.
+    if (in_array($key, $form['#extra'])) {
+        continue;
+    }
+
+    // Add the Parent Value & Update the Field Instance.
+    if (in_array($key, $form['#fields'])) {
+      $instance = field_read_instance($entity_type, $key, $bundle);
+      $instance['widget']['parent'] = $values['parent'];
+      field_update_instance($instance);
+    }
+
+  }
+
+}
+
+/**
+ * Implements hook_library().
+ */
+function insert_field_library() {
+
+  $libraries['jquery.caret'] = array(
+    'title' => 'jQuery.caret.js',
+    'website' => 'https://github.com/garyharan/jQuery-caret-utilities',
+    'version' => VERSION,
+    'js' => array(
+      drupal_get_path('module', 'insert_field') . '/js/jquery.caret.js' => array('group' => JS_LIBRARY, 'weight' => 2),
+    ),
+    'dependencies' => array(
+      array('system', 'jquery'),
+    ),
+  );
+
+  return $libraries;
+
+}
+
+/**
+ * Implements hook_field_attach_form().
+ *
+ */
+function insert_field_field_attach_form($entity_type, $entity, &$form, &$form_state, $langcode) {
+
+  // Get the Field Instances.
+  $instances = field_info_instances($entity_type, $form['#bundle']);
+
+  $parents = array();
+
+
+  foreach ($instances as $field => $instance) {
+
+    if (empty($instance['widget']['parent'])) {
+      continue;
+    }
+
+    $parents[] = $instance['widget']['parent'];
+
+  }
+
+  foreach ($parents as $parent) {
+
+    $form[$parent]['tabs'] = array(
+      '#type' => 'container',
+      '#attributes' => array(
+        'class' => array(
+          'insert-field-tabs',
+        ),
+      ),
+      '#parents' => array(),
+      '#weight' => -1,
+      'list' => array(
+        '#theme' => 'item_list',
+        '#items' => array(),
+        '#attributes' => array(),
+        '#weight' => -1,
+      ),
+    );
+
+  }
+
+  foreach ($instances as $field => $instance) {
+
+    if (empty($instance['widget']['parent'])) {
+      continue;
+    }
+
+    $id = drupal_html_id($field);
+
+    $parent = $instance['widget']['parent'];
+
+    $link = l($instance['label'], '', array(
+      'fragment' => $id,
+      'external' => TRUE,
+      'attributes' => array(),
+    ));
+
+    $form[$parent]['tabs']['list']['#items'][]['data'] = $link;
+    $form[$parent]['tabs'][$field] = $form[$field];
+    $form[$parent]['tabs'][$field]['#attributes']['id'] = $id;
+
+    foreach (element_children($form[$parent]['tabs'][$field]) as $lang) {
+
+      foreach (element_children($form[$parent]['tabs'][$field][$lang]) as $delta) {
+
+        if ($delta == 'add_more') {
+          'continue';
+        }
+
+        $form[$parent]['tabs'][$field][$lang][$delta]['insert'] = array(
+          '#type' => 'button',
+          '#value' => t('Insert'),
+          '#weight' => 100,
+          '#attributes' => array(
+            'name' => $field.'['.$delta.']',
+            'class' => array(
+              'insert-button'
+            ),
+          ),
+        );
+
+      }
+
+    }
+
+    unset($form[$field]);
+
+  }
+
+  $form['#attached']['library'][] = array('system', 'ui.tabs');
+
+  $form['#attached']['library'][] = array('insert_field', 'jquery.caret');
+
+  $form['#attached']['js'][] = drupal_get_path('module', 'insert_field') . '/js/insert_field.js';
+
+}
+
+/**
+ * Implements hook_field_attach_submit().
+ */
+function insert_field_field_attach_submit($entity_type, $entity, $form, &$form_state) {
+
+  // @TODO: Use the "_weight" field to find the change in delta.
+  // Probably use _field_filter_items() to also filter out the
+  // fields that are about to be deleted.
+
+  $items = $form_state['values']['field_pullquote'][LANGUAGE_NONE];
+
+  // dpm($items);
+
+  foreach ($items as $key => $item) {
+    if (!isset($item['_weight'])) {
+      unset($items[$key]);
+    }
+  }
+
+  usort($items, '_field_sort_items_helper');
+
+  // dpm($items);
+
+}
