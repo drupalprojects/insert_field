@@ -91,6 +91,8 @@ function insert_field_field_ui_submit($form, &$form_state) {
 
 /**
  * Implements hook_library().
+ *
+ * Registers the jQuery Caret Library.
  */
 function insert_field_library() {
 
@@ -113,6 +115,7 @@ function insert_field_library() {
 /**
  * Implements hook_field_attach_form().
  *
+ * Creates the tabs on the Entity Edit Form.
  */
 function insert_field_field_attach_form($entity_type, $entity, &$form, &$form_state, $langcode) {
 
@@ -121,19 +124,23 @@ function insert_field_field_attach_form($entity_type, $entity, &$form, &$form_st
 
   $parents = array();
 
-
+  // Loop through the Field Instances.
   foreach ($instances as $field => $instance) {
 
+    // If the Instance has no parent, continue.
     if (empty($instance['widget']['parent'])) {
       continue;
     }
 
-    $parents[] = $instance['widget']['parent'];
+    // Add to the list of Parents.
+    $parents[$instance['widget']['parent']] = $instance['widget']['parent'];
 
   }
 
+  // Loop through the Parents.
   foreach ($parents as $parent) {
 
+    // Add the Tabs to the Parent.
     $form[$parent]['tabs'] = array(
       '#type' => 'container',
       '#attributes' => array(
@@ -153,34 +160,48 @@ function insert_field_field_attach_form($entity_type, $entity, &$form, &$form_st
 
   }
 
+  // Loop through the Field Instances (again).
   foreach ($instances as $field => $instance) {
 
+    // If the Field has no parent, continue.
     if (empty($instance['widget']['parent'])) {
       continue;
     }
 
-    $id = drupal_html_id($field);
-
+    // Get the Parent.
     $parent = $instance['widget']['parent'];
 
+    // Create a predictable HTML ID.
+    $id = drupal_html_id($field);
+
+    // Create a link to the field.
     $link = l($instance['label'], '', array(
       'fragment' => $id,
       'external' => TRUE,
       'attributes' => array(),
     ));
 
+    // Add the link to the Parent.
     $form[$parent]['tabs']['list']['#items'][]['data'] = $link;
+
+    // Add the field to the list of tabs.
     $form[$parent]['tabs'][$field] = $form[$field];
+
+    // Set the HTML ID on the field.
     $form[$parent]['tabs'][$field]['#attributes']['id'] = $id;
 
+    // Loop through all the languages on a field.
     foreach (element_children($form[$parent]['tabs'][$field]) as $lang) {
 
+      // Loop through all of the items on a field.
       foreach (element_children($form[$parent]['tabs'][$field][$lang]) as $delta) {
 
-        if ($delta == 'add_more') {
-          'continue';
+        // If the delta is non-numeric, continue.
+        if (!is_numeric($delta)) {
+          continue;
         }
 
+        // Add the Insert Button to each field delta.
         $form[$parent]['tabs'][$field][$lang][$delta]['insert'] = array(
           '#type' => 'button',
           '#value' => t('Insert'),
@@ -197,39 +218,153 @@ function insert_field_field_attach_form($entity_type, $entity, &$form, &$form_st
 
     }
 
+    // Remove the original field from the form.
     unset($form[$field]);
 
   }
 
+  // Attach the jQuery UI Tabs Library.
   $form['#attached']['library'][] = array('system', 'ui.tabs');
 
+  // Attach the jQuery Caret Library.
   $form['#attached']['library'][] = array('insert_field', 'jquery.caret');
 
+  // Attach the custom Insert Field Javascript.
   $form['#attached']['js'][] = drupal_get_path('module', 'insert_field') . '/js/insert_field.js';
 
 }
 
 /**
  * Implements hook_field_attach_submit().
+ *
+ * Modifies the Inserted Field's delta,
+ * which ensures that when an item is moved or deleted
+ * the proper existing item is still referenced.
  */
 function insert_field_field_attach_submit($entity_type, $entity, $form, &$form_state) {
 
-  // @TODO: Use the "_weight" field to find the change in delta.
-  // Probably use _field_filter_items() to also filter out the
-  // fields that are about to be deleted.
+  // Get the Field Instances.
+  $instances = field_info_instances($entity_type, $form['#bundle']);
 
-  $items = $form_state['values']['field_pullquote'][LANGUAGE_NONE];
+  // Loop through the Field Instances.
+  foreach ($instances as $field_name => $instance) {
 
-  // dpm($items);
-
-  foreach ($items as $key => $item) {
-    if (!isset($item['_weight'])) {
-      unset($items[$key]);
+    // If the Field does not have a Parent, continue.
+    if (empty($instance['widget']['parent'])) {
+      continue;
     }
+
+    // Set the parent.
+    $parent = $instance['widget']['parent'];
+
+    // Get the Field Info by ID.
+    $field = field_info_field_by_id($instance['field_id']);
+
+    // Set the _field_is_empty() funciton.
+    $function = $field['module'] . '_field_is_empty';
+
+    // Loop through the Field Values.
+    foreach ($form_state['values'][$field_name] as $lang => $items) {
+
+      // Loop through the Field Items.
+      foreach ($items as $delta => $item) {
+
+        // If the Field is Not Empty, continue.
+        if (!$function($item, $field)) {
+          continue;
+        }
+
+        // Set the Regular Expression for replacing the Item.
+        $regex = "/<!-- ".$field_name."\\[".$delta."\\] -->/um";
+
+        // Loop through the Parent Items of the same language.
+        foreach ($entity->{$parent}[$lang] as &$parent_item) {
+
+          // If the Parent has no value, continue.
+          if (empty($parent_item['value'])) {
+            continue;
+          }
+
+          // Replace the Field(s) that have been deleted.
+          $parent_item['value'] = preg_replace($regex, "", $parent_item['value']);
+
+        }
+
+        unset($items[$delta]);
+
+      }
+
+      // Sort the items according to their new positions.
+      $sorted = $items;
+      usort($sorted, '_field_sort_items_helper');
+
+
+      // Loop through the now filtered field items.
+      foreach ($items as $delta => $item) {
+
+        // If there is no _weight, continue.
+        if (empty($item['_weight'])) {
+          continue;
+        }
+
+        // Loop through the sorted items and determine
+        // if the delta has changed.
+        $new_delta = NULL;
+        $sorted_item = reset($sorted);
+        while ($new_delta == NULL && $sorted_item !== FALSE) {
+
+          // If the _weight matches, this is the same item.
+          if ($sorted_item['_weight'] === $item['_weight']) {
+            $new_delta = key($sorted);
+          }
+
+          $sorted_item = next($sorted);
+        }
+
+        // If there is no new delta found, or the delta is the
+        // same, continue.
+        if ($new_delta === NULL || $delta === $new_delta) {
+          continue;
+        }
+
+        // Set the Regular Expression for replacing the Item.
+        $regex = "/<!-- ".$field_name."\\[".$delta."\\] -->/um";
+        $replacement = '<!-- '.$field_name.'[--'.$new_delta.'--] -->';
+
+        // Loop through the Parent Items of the same language.
+        foreach ($entity->{$parent}[$lang] as $delta => $parent_item) {
+
+          // If the Parent has no value, continue.
+          if (empty($parent_item['value'])) {
+            continue;
+          }
+
+          // Replace the Field(s) that have changed position.
+          $parent_item['value'] = preg_replace($regex, $replacement, $parent_item['value']);
+
+        }
+
+      }
+
+      // Set the Regular Expression for fixing the temporary replacement pattern.
+      $regex = "/<!-- ".$field_name."\\[--(\\d+)--\\] -->/um";
+      $replacement = "<!-- ".$field_name."[$1] -->";
+
+      // Loop through the Parent Items of the same language.
+      foreach ($entity->{$parent}[$lang] as $delta => &$parent_item) {
+
+        // If the Parent has no value, continue.
+        if (empty($parent_item['value'])) {
+          continue;
+        }
+
+        // Replace the Field(s) that have changed position.
+        $parent_item['value'] = preg_replace($regex, $replacement, $parent_item['value']);
+
+      }
+
+    }
+
   }
-
-  usort($items, '_field_sort_items_helper');
-
-  // dpm($items);
 
 }
