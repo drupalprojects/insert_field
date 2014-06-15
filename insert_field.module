@@ -141,22 +141,30 @@ function insert_field_field_attach_form($entity_type, $entity, &$form, &$form_st
   foreach ($parents as $parent) {
 
     // Add the Tabs to the Parent.
-    $form[$parent]['tabs'] = array(
-      '#type' => 'container',
-      '#attributes' => array(
-        'class' => array(
-          'insert-field-tabs',
-        ),
-      ),
+    $form[$parent.'_insert'] = array(
       '#parents' => array(),
-      '#weight' => -1,
-      'list' => array(
-        '#theme' => 'item_list',
-        '#items' => array(),
-        '#attributes' => array(),
-        '#weight' => -1,
+      '#weight' => $form[$parent]['#weight'],
+      'insert' => array(
+        '#type' => 'container',
+        '#attributes' => array(
+          'id' => drupal_html_id($parent.'-insert'),
+          'class' => array(
+            'insert-field-tabs',
+          ),
+        ),
+        'list' => array(
+          '#theme' => 'item_list',
+          '#items' => array(),
+          '#attributes' => array(),
+          '#weight' => -1,
+        ),
+        'fields' => array(),
       ),
     );
+
+    $form[$parent.'_insert'][$parent] = $form[$parent];
+
+    unset($form[$parent]);
 
   }
 
@@ -182,19 +190,19 @@ function insert_field_field_attach_form($entity_type, $entity, &$form, &$form_st
     ));
 
     // Add the link to the Parent.
-    $form[$parent]['tabs']['list']['#items'][]['data'] = $link;
+    $form[$parent.'_insert']['insert']['list']['#items'][]['data'] = $link;
 
     // Add the field to the list of tabs.
-    $form[$parent]['tabs'][$field] = $form[$field];
+    $form[$parent.'_insert']['insert']['fields'][$field] = $form[$field];
 
     // Set the HTML ID on the field.
-    $form[$parent]['tabs'][$field]['#attributes']['id'] = $id;
+    $form[$parent.'_insert']['insert']['fields'][$field]['#attributes']['id'] = $id;
 
     // Loop through all the languages on a field.
-    foreach (element_children($form[$parent]['tabs'][$field]) as $lang) {
+    foreach (element_children($form[$parent.'_insert']['insert']['fields'][$field]) as $lang) {
 
       // Loop through all of the items on a field.
-      foreach (element_children($form[$parent]['tabs'][$field][$lang]) as $delta) {
+      foreach (element_children($form[$parent.'_insert']['insert']['fields'][$field][$lang]) as $delta) {
 
         // If the delta is non-numeric, continue.
         if (!is_numeric($delta)) {
@@ -202,7 +210,7 @@ function insert_field_field_attach_form($entity_type, $entity, &$form, &$form_st
         }
 
         // Add the Insert Button to each field delta.
-        $form[$parent]['tabs'][$field][$lang][$delta]['insert'] = array(
+        $form[$parent.'_insert']['insert']['fields'][$field][$lang][$delta]['insert'] = array(
           '#type' => 'button',
           '#value' => t('Insert'),
           '#weight' => 100,
