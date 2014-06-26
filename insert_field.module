@@ -64,7 +64,10 @@ function insert_field_library() {
     'website' => 'https://github.com/garyharan/jQuery-caret-utilities',
     'version' => VERSION,
     'js' => array(
-      drupal_get_path('module', 'insert_field') . '/js/jquery.caret.js' => array('group' => JS_LIBRARY, 'weight' => 2),
+      drupal_get_path('module', 'insert_field') . '/js/jquery.caret.js' => array(
+        'group' => JS_LIBRARY,
+        'weight' => 2
+      ),
     ),
     'dependencies' => array(
       array('system', 'jquery'),
@@ -449,5 +452,36 @@ function insert_field_format_fields($form, $settings) {
   }
 
   return $form;
+
+}
+
+/*
+ * Implements hook_filter_info().
+ *
+ * filter_html prevents HTML Comments.
+ */
+function insert_field_filter_info() {
+  $filters['insert_field_comment'] = array(
+    'title' => t('Allow Fields to be Inserted'),
+    'description' => t('Prevents HTML Filter from stripping Insert Comments'),
+    'prepare callback' => 'insert_field_filter_comment_prepare'
+    'process callback' => 'insert_field_filter_comment',
+    'weight' => 100,
+  );
+
+  return $filters;
+}
+
+/*
+ * Escapes HTML Comments so they will be ignored by other formatters.
+ */
+function insert_field_filter_comment_prepare() {
+
+}
+
+/*
+ * De-Escapes HTML Comments so they will continue to exist.
+ */
+function insert_field_filter_comment_prepare() {
 
 }
