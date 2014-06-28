@@ -6,9 +6,11 @@
  * Alters the Field UI Form for easy insert configuration.
  */
 function insert_field_form_field_ui_field_overview_form_alter(&$form, &$form_state, $entity_type, $bundle) {
+  $entity_type = $form['#entity_type'];
+  $bundle = $form['#bundle'];
 
   // Get the Field Instances.
-  $instances = field_info_instances($form['#entity_type'], $form['#bundle']);
+  $instances = field_info_instances($entity_type, $bundle);
 
   $settings = insert_field_widget_settings($instances);
 
@@ -38,12 +40,16 @@ function insert_field_widget_settings($instances) {
 function insert_field_display_settings($instances, $view_mode) {
     $settings = array();
 
-    if (!isset($instance['display'][$view_mode])) {
-      $view_mode = 'default';
-    }
-
     foreach ($instances as $field => $instance) {
-      $settings[$field] = $instance['display'][$view_mode];
+
+      $mode = $view_mode;
+
+      if (empty($instance['display'][$mode])) {
+        $mode = 'default';
+      }
+
+      $settings[$field] = $instance['display'][$mode];
+
     }
 
     return $settings;
@@ -64,7 +70,7 @@ function insert_field_field_ui_submit($form, &$form_state) {
 
     // If the field is an Extra Field, it cannot have a parent.
     if (in_array($key, $form['#extra'])) {
-        continue;
+      continue;
     }
 
     // Add the Parent Value & Update the Field Instance.
@@ -245,9 +251,11 @@ function insert_field_field_attach_form($entity_type, $entity, &$form, &$form_st
  * the proper existing item is still referenced.
  */
 function insert_field_field_attach_submit($entity_type, $entity, $form, &$form_state) {
+  $entity_type = $form['#entity_type'];
+  $bundle = $form['#bundle'];
 
   // Get the Field Instances.
-  $instances = field_info_instances($entity_type, $form['#bundle']);
+  $instances = field_info_instances($entity_type, $bundle);
 
   // Loop through the Field Instances.
   foreach ($instances as $field_name => $instance) {
@@ -467,12 +475,11 @@ function insert_field_format_fields($form, $settings) {
     }
 
     // Add the Parent Options to the Field.
-    $parent = NULL;
     if (!empty($settings[$field]['parent'])) {
       $parent = $settings[$field]['parent'];
+      $form['fields'][$field]['parent_wrapper']['parent']['#default_value'] = $parent;
     }
     $form['fields'][$field]['parent_wrapper']['parent']['#options'] = $parents;
-    $form['fields'][$field]['parent_wrapper']['parent']['#default_value'] = $parent;
 
   }
 
@@ -591,5 +598,41 @@ function insert_field_single_item($field, $item) {
   }
 
   return $field;
+
+}
+
+/**
+ * Implements hook_form_FROM_ID_alter().
+ *
+ * field_ui_field_edit_form pulls the instance from the values, rather than the database,
+ * this removed the 'parent' element.
+ */
+function insert_field_form_field_ui_field_edit_form_alter(&$form, &$form_state, $instance) {
+
+  // Add a submit callback before all other callbacks.
+  array_unshift($form['#submit'], 'insert_field_field_ui_field_edit_form_submit');
+
+}
+
+/**
+ * Submit Callback for field_ui_field_edit_form.
+ *
+ * Merges the default values with the ones provided.
+ */
+function insert_field_field_ui_field_edit_form_submit(&$form, &$form_state) {
+
+  // Get the Needed VAlues.
+  $instance = $form_state['values']['instance'];
+  $entity_type = $instance['entity_type'];
+  $field_name = $instance['field_name'];
+  $bundle = $instance['bundle'];
+
+  // Get the Unmodified Instance.
+  $instance_source = field_read_instance($entity_type, $field_name, $bundle);
+
+  // Add the Parent to the values.
+  if (!empty($instance_source['widget']['parent'])) {
+    $form_state['values']['instance']['widget']['parent'] = $instance_source['widget']['parent'];
+  }
 
 }
