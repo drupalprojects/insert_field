@@ -16,6 +16,9 @@ function insert_field_form_field_ui_field_overview_form_alter(&$form, &$form_sta
 
   $form = insert_field_format_fields($form, $settings);
 
+  // Attach the custom Insert Field Javascript.
+  $form['#attached']['js'][] = drupal_get_path('module', 'insert_field') . '/js/insert_field.field_ui.js';
+
   // Add a submit callback.
   $form['#submit'][] = 'insert_field_field_ui_submit';
 
@@ -116,6 +119,7 @@ function insert_field_library() {
  * Creates the tabs on the Entity Edit Form.
  */
 function insert_field_field_attach_form($entity_type, $entity, &$form, &$form_state, $langcode) {
+  global $theme;
 
   // Get the Field Instances.
   $instances = field_info_instances($entity_type, $form['#bundle']);
@@ -159,10 +163,6 @@ function insert_field_field_attach_form($entity_type, $entity, &$form, &$form_st
         'fields' => array(),
       ),
     );
-
-    $form[$parent.'_insert'][$parent] = $form[$parent];
-
-    unset($form[$parent]);
 
   }
 
@@ -239,7 +239,10 @@ function insert_field_field_attach_form($entity_type, $entity, &$form, &$form_st
   $form['#attached']['js'][] = drupal_get_path('module', 'insert_field') . '/js/insert_field.js';
 
   // Attach the custom Insert Field CSS.
-  $form['#attached']['css'][] = drupal_get_path('module', 'insert_field') . '/css/insert_field.css';
+  if ($theme == 'seven') {
+    $path = drupal_get_path('module', 'insert_field') . '/css/insert_field.seven.css';
+    $form['#attached']['css'][] = $path;
+  }
 
 }
 
@@ -307,6 +310,16 @@ function insert_field_field_attach_submit($entity_type, $entity, $form, &$form_s
 
       // Sort the items according to their new positions.
       $sorted = $items;
+
+      // Remove non-array items, which causes a mis-match in delta.
+      foreach ($sorted as $key => $value) {
+
+        if (!is_array($value)) {
+          unset($sorted[$key]);
+        }
+
+      }
+
       usort($sorted, '_field_sort_items_helper');
 
 
@@ -396,6 +409,9 @@ function insert_field_form_field_ui_display_overview_form_alter(&$form, &$form_s
   $settings = insert_field_display_settings($instances, $view_mode);
 
   $form = insert_field_format_fields($form, $settings);
+
+  // Attach the custom Insert Field Javascript.
+  $form['#attached']['js'][] = drupal_get_path('module', 'insert_field') . '/js/insert_field.field_ui.js';
 
   // Add a submit callback.
   $form['#submit'][] = 'insert_field_field_ui_display_submit';
