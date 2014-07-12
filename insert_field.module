@@ -466,7 +466,6 @@ function insert_field_format_fields($form, $settings) {
 
     // Do not allow the Extra Fields to be inserted.
     if ($form['fields'][$field]['#row_type'] == 'extra_field') {
-      $form['fields'][$field]['#attributes']['class'][] = 'tabledrag-root';
       continue;
     }
 
@@ -476,11 +475,31 @@ function insert_field_format_fields($form, $settings) {
     // Remove the class that prevents them from having children
     // and create an array of potential parrents.
     if (in_array($info['type'], $types)) {
+
       unset($form['fields'][$field]['#attributes']['class'][1]);
-      $parents[$field] = $field;
+
+      if (!empty($form['fields'][$field]['human_name'])) {
+        $label = 'human_name';
+      }
+      else if (!empty($form['fields'][$field]['label']['#markup'])) {
+        $label = 'label';
+      }
+
+      $parents[$field] = $form['fields'][$field][$label]['#markup'];
+      
     }
 
   }
+
+  $form['#attached']['js'][] = array(
+    'data' => array(
+      'insert_field' => array(
+        'field_settings' => $settings,
+        'parents' => $parents,
+      ),
+    ),
+    'type' => 'setting',
+  );
 
   // Loop through all of the Fields.
   foreach (element_children($form['fields']) as $field) {
