@@ -296,6 +296,10 @@ function insert_field_field_attach_form($entity_type, $entity, &$form, &$form_st
     $path = drupal_get_path('module', 'insert_field') . '/css/insert_field.seven.css';
     $form['#attached']['css'][] = $path;
   }
+  else if ($theme == 'bartik') {
+    $path = drupal_get_path('module', 'insert_field') . '/css/insert_field.bartik.css';
+    $form['#attached']['css'][] = $path;
+  }
 
 }
 
@@ -684,7 +688,7 @@ function insert_field_entity_view_alter(&$build, $type) {
       if (preg_match($regex, $markup)) {
 
         $output = drupal_render($build[$field]);
-        
+
         $build[$field]['#printed'] = FALSE;
 
         $inserted = preg_replace($regex, $output, $markup);
