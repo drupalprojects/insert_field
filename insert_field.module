@@ -145,7 +145,7 @@ function insert_field_field_attach_form($entity_type, $entity, &$form, &$form_st
     // Add the Tabs to the Parent.
     $form[$parent.'_insert'] = array(
       '#parents' => array(),
-      '#weight' => $form[$parent]['#weight'],
+      '#weight' => $form[$parent]['#weight'] - 0.5,
       'insert' => array(
         '#type' => 'container',
         '#attributes' => array(
@@ -199,8 +199,29 @@ function insert_field_field_attach_form($entity_type, $entity, &$form, &$form_st
     // Loop through all the languages on a field.
     foreach (element_children($form[$parent.'_insert']['insert']['fields'][$field]) as $lang) {
 
+      // Get all of the available Deltas.
+      $deltas = element_children($form[$parent.'_insert']['insert']['fields'][$field][$lang]);
+
+      // If there are no deltas, the formatter is not delta specific.
+      // The only option, therefore, is to insert the entire field.
+      if (!count($deltas)) {
+
+        $form[$parent.'_insert']['insert']['fields'][$field][$lang]['insert'] = array(
+          '#type' => 'button',
+          '#value' => t('Insert'),
+          '#weight' => 100,
+          '#attributes' => array(
+            'name' => $field,
+            'class' => array(
+              'insert-button'
+            ),
+          ),
+        );
+
+      }
+
       // Loop through all of the items on a field.
-      foreach (element_children($form[$parent.'_insert']['insert']['fields'][$field][$lang]) as $delta) {
+      foreach ($deltas as $delta) {
 
         // If the delta is non-numeric, continue.
         if (!is_numeric($delta)) {
@@ -311,11 +332,18 @@ function insert_field_field_attach_submit($entity_type, $entity, $form, &$form_s
       // Sort the items according to their new positions.
       $sorted = $items;
 
-      // Remove non-array items, which causes a mis-match in delta.
       foreach ($sorted as $key => $value) {
 
+        // Remove non-array items, which causes a mis-match in delta.
         if (!is_array($value)) {
           unset($sorted[$key]);
+          continue;
+        }
+
+        // Remove Items that have no weight.
+        if (!isset($value['_weight'])) {
+          unset($sorted[$key]);
+          continue;
         }
 
       }
@@ -486,7 +514,7 @@ function insert_field_format_fields($form, $settings) {
       }
 
       $parents[$field] = $form['fields'][$field][$label]['#markup'];
-      
+
     }
 
   }
@@ -539,7 +567,7 @@ function insert_field_filter_info_alter(&$info) {
 function _insert_field_filter_html_prepare($text, $filter) {
 
   // Escape Insert Field HTML Comments by changing '<' and '>' to '[' and ']'.
-  $text = preg_replace("/<(!-- \\w+\\[\\d+\\] --)>/um", "[$1]", $text);
+  $text = preg_replace("/<(!-- \\w+(\\[\\d+\\])? --)>/um", "[$1]", $text);
 
   return $text;
 }
@@ -553,7 +581,7 @@ function _insert_field_filter_html($text, $filter) {
   $text = _filter_html($text, $filter);
 
   // Revert the Escaped Text.
-  $text = preg_replace("/\\[(!-- \\w+\\[\\d+\\] --)\\]/um", "<$1>", $text);
+  $text = preg_replace("/\\[(!-- \\w+(\\[\\d+\\])? --)\\]/um", "<$1>", $text);
 
   return $text;
 }
@@ -589,17 +617,24 @@ function insert_field_entity_view_alter(&$build, $type) {
 
       $item = insert_field_single_item($build[$field], $delta);
 
-
       foreach (element_children($build[$parent]) as $parent_delta) {
 
         $output = drupal_render($item);
-        $regex = "/<(!-- ".$field."\\[".$delta."\\] --)>/um";
+        $regex = "/<!-- ".$field."\\[".$delta."\\] -->/um";
 
         $markup = $build[$parent][$parent_delta]['#markup'];
 
         $build[$parent][$parent_delta]['#markup'] = preg_replace($regex, $output, $markup);
 
       }
+
+      $output = drupal_render($build[$field]);
+
+      $regex = "/<!-- ".$field." -->/um";
+
+      $markup = $build[$parent][$parent_delta]['#markup'];
+
+      $build[$parent][$parent_delta]['#markup'] = preg_replace($regex, $output, $markup);
 
     }
 
