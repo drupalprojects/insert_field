@@ -652,26 +652,46 @@ function insert_field_entity_view_alter(&$build, $type) {
 
     foreach (element_children($build[$field]) as $delta) {
 
+      $regex = "/<!-- ".$field."\\[".$delta."\\] -->/um";
+
       $item = insert_field_single_item($build[$field], $delta);
 
       foreach (element_children($build[$parent]) as $parent_delta) {
 
-        $output = drupal_render($item);
-        $regex = "/<!-- ".$field."\\[".$delta."\\] -->/um";
-
         $markup = $build[$parent][$parent_delta]['#markup'];
 
-        $build[$parent][$parent_delta]['#markup'] = preg_replace($regex, $output, $markup);
+        if (preg_match($regex, $markup)) {
+
+          $output = drupal_render($item);
+
+          $item['#printed'] = FALSE;
+
+          $inserted = preg_replace($regex, $output, $markup);
+          $build[$parent][$parent_delta]['#markup'] = $inserted;
+
+        }
 
       }
 
-      $output = drupal_render($build[$field]);
+    }
 
-      $regex = "/<!-- ".$field." -->/um";
+    $regex = "/<!-- ".$field." -->/um";
+
+    foreach (element_children($build[$parent]) as $parent_delta) {
 
       $markup = $build[$parent][$parent_delta]['#markup'];
 
-      $build[$parent][$parent_delta]['#markup'] = preg_replace($regex, $output, $markup);
+      if (preg_match($regex, $markup)) {
+
+        $output = drupal_render($build[$field]);
+        
+        $build[$field]['#printed'] = FALSE;
+
+        $inserted = preg_replace($regex, $output, $markup);
+
+        $build[$parent][$parent_delta]['#markup'] = $inserted;
+
+      }
 
     }
 
