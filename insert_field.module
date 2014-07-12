@@ -88,28 +88,55 @@ function insert_field_field_ui_submit($form, &$form_state) {
 }
 
 /**
- * Implements hook_library().
- *
- * Registers the jQuery Caret Library.
+ * Implements hook_libraries_info().
  */
-function insert_field_library() {
+function insert_field_libraries_info() {
 
   $libraries['jquery.caret'] = array(
-    'title' => 'jQuery Caret Plugin',
-    'website' => 'https://github.com/acdvorak/jquery.caret/',
-    'version' => '1.5.2',
-    'js' => array(
-      drupal_get_path('module', 'insert_field') . '/js/jquery.caret.js' => array(
-        'group' => JS_LIBRARY,
-        'weight' => 2
-      ),
+    'name' => 'jQuery Caret Plugin',
+    'vendor url' => 'https://github.com/acdvorak/jquery.caret/',
+    'download url' => 'https://github.com/acdvorak/jquery.caret/archive/master.zip',
+    'version arguments' => array(
+      'file' => 'jquery.caret.json',
     ),
-    'dependencies' => array(
-      array('system', 'jquery'),
+    'version callback' => 'insert_field_plugin_version',
+    'files' => array(
+      'js' => array(
+        'src/jquery.caret.js',
+      ),
     ),
   );
 
   return $libraries;
+}
+
+function insert_field_plugin_version($library, $options) {
+
+  $file = DRUPAL_ROOT . '/' . $library['library path'] . '/' . $options['file'];
+  if (empty($options['file']) || !file_exists($file)) {
+    return;
+  }
+
+  $data = drupal_json_decode(file_get_contents($file));
+
+  return $data['version'];
+
+}
+
+function insert_field_require_library($name) {
+
+  $library = libraries_load($name);
+
+  if (empty($library['installed'])) {
+    $args = array();
+    $options = array(
+      'external' => TRUE,
+    );
+    $args['!title'] = l($library['name'], $library['vendor url'], $options);
+    $args['@path'] = 'sites/all/libraries/'.$name.'/';
+    $message = t('You must download !title and place it in @path', $args);
+    drupal_set_message($message, 'error');
+  }
 
 }
 
@@ -137,6 +164,10 @@ function insert_field_field_attach_form($entity_type, $entity, &$form, &$form_st
     // Add to the list of Parents.
     $parents[$instance['widget']['parent']] = $instance['widget']['parent'];
 
+  }
+
+  if (!count($parents)) {
+    return;
   }
 
   // Loop through the Parents.
@@ -254,7 +285,8 @@ function insert_field_field_attach_form($entity_type, $entity, &$form, &$form_st
   $form['#attached']['library'][] = array('system', 'ui.tabs');
 
   // Attach the jQuery Caret Library.
-  $form['#attached']['library'][] = array('insert_field', 'jquery.caret');
+  insert_field_require_library('jquery.caret');
+  $form['#attached']['libraries_load'][] = array('jquery.caret');
 
   // Attach the custom Insert Field Javascript.
   $form['#attached']['js'][] = drupal_get_path('module', 'insert_field') . '/js/insert_field.js';
