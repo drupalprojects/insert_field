@@ -13,12 +13,16 @@ Drupal.behaviors.insert_field = {
       // Do Not execute the button fuction.
       e.preventDefault();
 
+      // Get the id of the parent.
+      var tabs = jQuery(this).parents('.insert-field-tabs');
+      var parent_id = jQuery(tabs).attr('id').replace('insert-', 'edit-');
+      var parent = jQuery('#'+parent_id);
+
       // Get the field from the name attribute.
       var field = jQuery(this).attr('name');
 
-      // @TODO: Change this to the parent, rather than a hard-coded value!
       // Insert the Comment into the Parent Field.
-      jQuery('#edit-body-und-0-value').insertAtCaret('<!-- '+field+' -->');
+      jQuery('textarea.text-full', parent).caret('<!-- '+field+' -->');
 
     });
 

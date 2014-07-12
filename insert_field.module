@@ -95,9 +95,9 @@ function insert_field_field_ui_submit($form, &$form_state) {
 function insert_field_library() {
 
   $libraries['jquery.caret'] = array(
-    'title' => 'jQuery.caret.js',
-    'website' => 'https://github.com/garyharan/jQuery-caret-utilities',
-    'version' => VERSION,
+    'title' => 'jQuery Caret Plugin',
+    'website' => 'https://github.com/acdvorak/jquery.caret/',
+    'version' => '1.5.2',
     'js' => array(
       drupal_get_path('module', 'insert_field') . '/js/jquery.caret.js' => array(
         'group' => JS_LIBRARY,
@@ -149,7 +149,7 @@ function insert_field_field_attach_form($entity_type, $entity, &$form, &$form_st
       'insert' => array(
         '#type' => 'container',
         '#attributes' => array(
-          'id' => drupal_html_id($parent.'-insert'),
+          'id' => drupal_html_id('insert-'.$parent),
           'class' => array(
             'insert-field-tabs',
           ),
@@ -206,7 +206,7 @@ function insert_field_field_attach_form($entity_type, $entity, &$form, &$form_st
       // The only option, therefore, is to insert the entire field.
       if (!count($deltas)) {
 
-        $form[$parent.'_insert']['insert']['fields'][$field][$lang]['insert'] = array(
+        $form[$parent.'_insert']['insert']['fields'][$field]['insert'] = array(
           '#type' => 'button',
           '#value' => t('Insert'),
           '#weight' => 100,
@@ -300,6 +300,11 @@ function insert_field_field_attach_submit($entity_type, $entity, $form, &$form_s
 
     // Loop through the Field Values.
     foreach ($form_state['values'][$field_name] as $lang => $items) {
+
+      // If the Items are not an array, continue.
+      if (!is_array($items)) {
+        continue;
+      }
 
       // Loop through the Field Items.
       foreach ($items as $delta => $item) {
