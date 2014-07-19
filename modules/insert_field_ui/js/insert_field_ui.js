@@ -1,4 +1,4 @@
-Drupal.behaviors.insert_field = {
+Drupal.behaviors.insertFieldUI = {
   attach: function (context, settings) {
 
     // Initiate the tabs with no tab selected.

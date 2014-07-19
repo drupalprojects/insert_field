@@ -1,4 +1,4 @@
-Drupal.behaviors.insertFieldFieldUI = {
+Drupal.behaviors.insertFieldUIFieldUI = {
   attach: function (context, settings) {
 
     // Get the Taible.
