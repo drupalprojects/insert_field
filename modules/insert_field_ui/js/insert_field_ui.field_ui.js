@@ -61,7 +61,14 @@ Drupal.insertFieldFieldUI.onDrop = function() {
   var settings = Drupal.settings.insert_field;
 
   // Get the Formatter Value.
-  var value = jQuery('.field-formatter-type', row).get(0).value;
+  var formatter = jQuery('.field-formatter-type', row);
+
+  // If the formatter cannot be found, pass back to the origin method.
+  if (!formatter.length) {
+    return this._onDrop();
+  }
+
+  var value = jQuery(formatter).get(0).value;
 
   // Start an empty refresh object for storing all of the refreshRows.
   // This allows use to perform a single AJAXRefreshRows().
