@@ -452,7 +452,7 @@ function insert_field_ui_field_attach_submit($entity_type, $entity, $form, &$for
  *
  * Alters the Field UI Display for easy insert configuration.
  */
-function insert_field_form_field_ui_display_overview_form_alter(&$form, &$form_state, $entity_type, $bundle) {
+function insert_field_ui_form_field_ui_display_overview_form_alter(&$form, &$form_state, $entity_type, $bundle) {
   $entity_type = $form['#entity_type'];
   $bundle = $form['#bundle'];
   $view_mode = $form['#view_mode'];
@@ -568,7 +568,16 @@ function insert_field_ui_format_fields($form, $settings) {
       $parent = $settings[$field]['parent'];
       $form['fields'][$field]['parent_wrapper']['parent']['#default_value'] = $parent;
     }
-    $form['fields'][$field]['parent_wrapper']['parent']['#options'] = $parents;
+
+    $options = array();
+
+    // If the Field already has Parent Options, get those choices.
+    if (!empty($form['fields'][$field]['parent_wrapper']['parent']['#options'])) {
+      $options = $form['fields'][$field]['parent_wrapper']['parent']['#options'];
+    }
+
+    // Set the new Options
+    $form['fields'][$field]['parent_wrapper']['parent']['#options'] = array_merge($options, $parents);
 
   }
 
