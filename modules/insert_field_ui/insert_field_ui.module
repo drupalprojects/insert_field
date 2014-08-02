@@ -22,6 +22,8 @@ function insert_field_ui_form_field_ui_field_overview_form_alter(&$form, &$form_
   // Add a submit callback.
   $form['#submit'][] = 'insert_field_ui_field_ui_submit';
 
+  $form['#validate'][] = 'insert_field_ui_field_ui_validate';
+
 }
 
 /**
@@ -35,6 +37,89 @@ function insert_field_ui_widget_settings($instances) {
     }
 
     return $settings;
+}
+
+/**
+ * Field UI Form Validation Callback.
+ *
+ * Prevents Fieldception.
+ */
+function insert_field_ui_field_ui_validate($form, &$form_state) {
+
+  // Get all of the potential parents.
+  $parents = insert_field_ui_get_parents($form);
+
+  // Loop thorugh all of the fields.
+  foreach ($form_state['values']['fields'] as $field_name => $field) {
+
+    // If the field has no parent, continue.
+    if (empty($field['parent'])) {
+      continue;
+    }
+
+    // If the field's parent is not an Insert Field, continue.
+    if (empty($parents[$field['parent']])) {
+      continue;
+    }
+
+    // If this Field cannot be a parrent, continue.
+    if (empty($parents[$field_name])) {
+      continue;
+    }
+
+    // All that should be left is parents, who have parents.
+    // Loop through all of the fields again to check for children.
+    foreach ($form_state['values']['fields'] as $child_field_name => $child_field) {
+
+      // If the Field Name and Child Field Name are the same,
+      // it's the came field, continue.
+      if ($child_field_name == $field_name) {
+        continue;
+      }
+
+      // If the Child Field has no parent, continue.
+      if (empty($child_field['parent'])) {
+        continue;
+      }
+
+      // If the Child Field's parent is not an Insert Field, continue.
+      if (empty($parents[$child_field['parent']])) {
+        continue;
+      }
+
+      // If the Child Field's Parent is not the Loop's Parent, continue.
+      if ($child_field['parent'] != $field_name) {
+        continue;
+      }
+
+      // All that should be left is fields which are children of children.
+      // Attempt to retreive a label for the child field.
+      if (!empty($form['fields'][$child_field_name]['human_name'])) {
+        $label = 'human_name';
+      }
+      else if (!empty($form['fields'][$child_field_name]['label']['#markup'])) {
+        $label = 'label';
+      }
+
+      $child_field_label = $child_field_name;
+
+      if (!empty($label)) {
+        $child_field_label = $form['fields'][$child_field_name][$label]['#markup'];
+      }
+
+      // Set the Validation Error Message.
+      $message = t('@child_field cannot be a inserted into @parent_field', array(
+        '@child_field' => $child_field_label,
+        '@parent_field' => $parents[$field_name],
+      ));
+
+      // Set the Form Error.
+      form_set_error('fields]['.$child_field_name.'][parent', $message);
+      
+    }
+
+  }
+
 }
 
 /**
@@ -531,9 +616,9 @@ function insert_field_ui_field_ui_display_submit($form, &$form_state) {
 }
 
 /*
- * Formats the Form Fields and Returns the Parents array.
+ * Get the all Possible Parents from a List of Fields.
  */
-function insert_field_ui_format_fields($form, $settings) {
+function insert_field_ui_get_parents($form) {
 
   $parents = array();
 
@@ -554,11 +639,8 @@ function insert_field_ui_format_fields($form, $settings) {
     // Get the info for the current field.
     $info = field_info_field($field);
 
-    // Remove the class that prevents them from having children
-    // and create an array of potential parrents.
+    // If Field is a Text Field, add to Parents Array.
     if (in_array($info['type'], $types)) {
-
-      unset($form['fields'][$field]['#attributes']['class'][1]);
 
       if (!empty($form['fields'][$field]['human_name'])) {
         $label = 'human_name';
@@ -570,6 +652,26 @@ function insert_field_ui_format_fields($form, $settings) {
       $parents[$field] = $form['fields'][$field][$label]['#markup'];
 
     }
+
+  }
+
+  return $parents;
+
+}
+
+/*
+ * Formats the Form Fields and Returns the Parents array.
+ */
+function insert_field_ui_format_fields($form, $settings) {
+
+  $parents = insert_field_ui_get_parents($form);
+
+  // Loop through all of the Fields.
+  foreach ($parents as $field) {
+
+    // Remove the class that prevents them from having children
+    // and create an array of potential parrents.
+    unset($form['fields'][$field]['#attributes']['class'][1]);
 
   }
 
