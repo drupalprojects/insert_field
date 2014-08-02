@@ -146,6 +146,11 @@ function insert_field_ui_field_attach_form($entity_type, $entity, &$form, &$form
       continue;
     }
 
+    // If the parent is not a Field.
+    if (empty($instances[$instance['widget']['parent']])) {
+      continue;
+    }
+
     // Add to the list of Parents.
     $parents[$instance['widget']['parent']] = $instance['widget']['parent'];
 
@@ -179,6 +184,29 @@ function insert_field_ui_field_attach_form($entity_type, $entity, &$form, &$form
         'fields' => array(),
       ),
     );
+
+    /*
+     * @TODO: Fiture out how to add the "insert_FIELD" to the group.
+    if (!empty($form['#group_children'])) {
+
+      if (!empty($form['#group_children'][$parent])) {
+
+
+        $group_name = $form['#group_children'][$parent];
+
+        $group = $form['#groups'][$group_name];
+
+        $field_group = $form['#fieldgroups'][$group_name];
+
+        $form['#group_children'][$parent.'_insert'] = $group_name;
+
+        $group->children[] = $parent.'_insert';
+        $field_group->children[] = $parent.'_insert';
+
+      }
+
+    }
+    */
 
   }
 
@@ -545,10 +573,15 @@ function insert_field_ui_format_fields($form, $settings) {
 
   }
 
+  $fields = array();
+  foreach ($settings as $key => $value) {
+    $fields[$key] = $value['module'];
+  }
+
   $form['#attached']['js'][] = array(
     'data' => array(
       'insert_field' => array(
-        'field_settings' => $settings,
+        'fields' => $fields,
         'parents' => $parents,
       ),
     ),
