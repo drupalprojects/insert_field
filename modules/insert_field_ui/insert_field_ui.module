@@ -115,7 +115,7 @@ function insert_field_ui_field_ui_validate($form, &$form_state) {
 
       // Set the Form Error.
       form_set_error('fields]['.$child_field_name.'][parent', $message);
-      
+
     }
 
   }
@@ -667,11 +667,11 @@ function insert_field_ui_format_fields($form, $settings) {
   $parents = insert_field_ui_get_parents($form);
 
   // Loop through all of the Fields.
-  foreach ($parents as $field) {
+  foreach ($parents as $field_name => $field) {
 
     // Remove the class that prevents them from having children
     // and create an array of potential parrents.
-    unset($form['fields'][$field]['#attributes']['class'][1]);
+    unset($form['fields'][$field_name]['#attributes']['class'][1]);
 
   }
 
