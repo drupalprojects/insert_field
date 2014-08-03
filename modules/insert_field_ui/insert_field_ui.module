@@ -731,7 +731,7 @@ function insert_field_ui_format_fields($form, $settings) {
 
   $fields = array();
   foreach ($settings as $key => $value) {
-    $fields[$key] = $value['module'];
+    $fields[$key] = $key;
   }
 
   $form['#attached']['js'][] = array(
