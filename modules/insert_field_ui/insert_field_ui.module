@@ -212,14 +212,60 @@ function insert_field_ui_require_library($name) {
 
 /**
  * Implements hook_field_attach_form().
- *
- * Creates the tabs on the Entity Edit Form.
+ * Add the pre_render callback(s).
  */
 function insert_field_ui_field_attach_form($entity_type, $entity, &$form, &$form_state, $langcode) {
-  global $theme;
+
+  // Add the form pre_render callback.
+  array_unshift($form['#pre_render'], 'insert_field_ui_field_tabs');
 
   // Get the Field Instances.
   $instances = field_info_instances($entity_type, $form['#bundle']);
+
+  // Get the Insert Field Parents.
+  $parents = insert_field_ui_get_parents_by_instance($instances);
+
+  // Loop through the Field Instances (again).
+  foreach ($instances as $field => $instance) {
+
+    // If the Field has no parent, continue.
+    if (empty($instance['widget']['parent'])) {
+      continue;
+    }
+
+    // Get the Parent.
+    $parent = $instance['widget']['parent'];
+
+    // If the Parent is not an Insert Field, continue.
+    if (empty($parents[$parent])) {
+      continue;
+    }
+
+    // Ensure that the process array is an array.
+    if (!isset($form[$field]['#process'])) {
+      $form[$field]['#process'] = array();
+    }
+
+    // Add the pre_render callback.
+    array_unshift($form[$field]['#process'], 'insert_field_ui_field_insert');
+
+  }
+
+}
+
+/**
+ * Form Pre-Render Callback.
+ * Creates the tabs on the Entity Edit Form.
+ *
+ * @param array Form array.
+ *
+ * @return array $form The modified form array.
+ */
+function insert_field_ui_field_tabs($form) {
+  global $theme;
+
+  // Get the Field Instances.
+  $instances = field_info_instances($form['#entity_type'], $form['#bundle']);
 
   $parents = array();
 
@@ -241,8 +287,9 @@ function insert_field_ui_field_attach_form($entity_type, $entity, &$form, &$form
 
   }
 
+  // If there are no parents, there is no need to continue.
   if (!count($parents)) {
-    return;
+    return $form;
   }
 
   // Loop through the Parents.
@@ -332,55 +379,6 @@ function insert_field_ui_field_attach_form($entity_type, $entity, &$form, &$form
     // Set the HTML ID on the field.
     $form[$parent.'_insert']['insert']['fields'][$field]['#attributes']['id'] = $id;
 
-    // Loop through all the languages on a field.
-    foreach (element_children($form[$parent.'_insert']['insert']['fields'][$field]) as $lang) {
-
-      // Get all of the available Deltas.
-      $deltas = element_children($form[$parent.'_insert']['insert']['fields'][$field][$lang]);
-
-      // If there are no deltas, the formatter is not delta specific.
-      // The only option, therefore, is to insert the entire field.
-      if (!count($deltas)) {
-
-        $form[$parent.'_insert']['insert']['fields'][$field]['insert'] = array(
-          '#type' => 'button',
-          '#value' => t('Insert'),
-          '#weight' => 100,
-          '#attributes' => array(
-            'name' => $field,
-            'class' => array(
-              'insert-button'
-            ),
-          ),
-        );
-
-      }
-
-      // Loop through all of the items on a field.
-      foreach ($deltas as $delta) {
-
-        // If the delta is non-numeric, continue.
-        if (!is_numeric($delta)) {
-          continue;
-        }
-
-        // Add the Insert Button to each field delta.
-        $form[$parent.'_insert']['insert']['fields'][$field][$lang][$delta]['insert'] = array(
-          '#type' => 'button',
-          '#value' => t('Insert'),
-          '#weight' => 100,
-          '#attributes' => array(
-            'name' => $field.'['.$delta.']',
-            'class' => array(
-              'insert-button'
-            ),
-          ),
-        );
-
-      }
-
-    }
-
     // Remove the original field from the form.
     unset($form[$field]);
 
@@ -406,6 +404,78 @@ function insert_field_ui_field_attach_form($entity_type, $entity, &$form, &$form
     $form['#attached']['css'][] = $path;
   }
 
+  return $form;
+
+}
+
+function insert_field_ui_field_insert($element) {
+
+  $lang = $element['#language'];
+
+  $field_name = $element[$lang]['#field_name'];
+
+  // Get all of the available Deltas.
+  $deltas = element_children($element[$lang]);
+
+  // If there are no deltas, the formatter is not delta specific.
+  // The only option, therefore, is to insert the entire field.
+  if (!count($deltas)) {
+
+    $element['insert'] = array(
+      '#type' => 'button',
+      '#value' => t('Insert'),
+      '#weight' => 100,
+      '#attributes' => array(
+        'name' => $field_name,
+        'class' => array(
+          'insert-button'
+        ),
+      ),
+    );
+
+  }
+  else {
+
+    // Loop through all of the items on a field.
+    foreach ($deltas as $delta) {
+
+      // If the delta is non-numeric, continue.
+      if (!is_numeric($delta)) {
+        continue;
+      }
+
+      // If the field is a Managed File field and
+      // there is no default value, continue.
+      if (!empty($element[$lang][$delta]['#type'])) {
+
+        if ($element[$lang][$delta]['#type'] == 'managed_file') {
+
+          if (empty($element[$lang][$delta]['#default_value']['fid'])) {
+            continue;
+          }
+
+        }
+
+      }
+
+      // Add the Insert Button to each field item.
+      $element[$lang][$delta]['insert'] = array(
+        '#type' => 'button',
+        '#value' => t('Insert'),
+        '#weight' => 100,
+        '#attributes' => array(
+          'name' => $field_name.'['.$delta.']',
+          'class' => array(
+            'insert-button'
+          ),
+        ),
+      );
+
+    }
+
+  }
+
+  return $element;
 }
 
 /**
