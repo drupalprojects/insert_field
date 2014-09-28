@@ -13,5 +13,13 @@
   ],
   "support": {
       "issues": "https://www.drupal.org/project/issues/insert_field"
+  },
+  "require": {
+    "drupal/drupal": "7.x",
+    "drupal/text": "7.x",
+    "drupal/libraries": "7.x",
+  },
+  "replaces": {
+    "drupal/insert_field_ui": "self.version"
   }
 }
