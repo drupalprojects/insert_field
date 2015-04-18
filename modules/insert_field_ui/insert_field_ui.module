@@ -152,62 +152,69 @@ function insert_field_ui_field_ui_submit($form, &$form_state) {
 }
 
 /**
- * Implements hook_libraries_info().
+ * Include the specified library.
+ *
+ * Downloads the specified library and places it in the user's default file
+ * file system.
+ *
+ * @param string $name
+ *    The name of the library.
+ *
+ * @return string
+ *    URL to the library.
  */
-function insert_field_ui_libraries_info() {
+function insert_field_ui_require_library($name) {
+  $path = '';
 
-  $libraries['jquery.caret'] = array(
-    'name' => 'jQuery Caret Plugin',
-    'vendor url' => 'https://github.com/acdvorak/jquery.caret/',
-    'download url' => 'https://github.com/acdvorak/jquery.caret/archive/master.zip',
-    'version arguments' => array(
-      'file' => 'jquery.caret.json',
-    ),
-    'version callback' => 'insert_field_ui_plugin_version',
-    'files' => array(
-      'js' => array(
-        'src/jquery.caret.js',
-      ),
+  $libraries = array(
+    'jquery_caret' => array(
+      'filename' => 'jquery.caret.js',
+      'name' => 'jQuery Caret Plugin',
+      'url' => 'https://raw.githubusercontent.com/acdvorak/jquery.caret/v1.5.2/src/jquery.caret.js',
+      'md5' => '7eb8d3869d383042d49d8691c4c1ba83'
     ),
   );
 
-  return $libraries;
-}
-
-/**
- * Determine the plugin version via JSON.
- */
-function insert_field_ui_plugin_version($library, $options) {
-
-  $file = DRUPAL_ROOT . '/' . $library['library path'] . '/' . $options['file'];
-  if (empty($options['file']) || !file_exists($file)) {
-    return;
+  if (empty($libraries[$name])) {
+    return $path;
   }
 
-  $data = drupal_json_decode(file_get_contents($file));
+  if ($path = variable_get('insert_field_' . $name, '')) {
+    return $path;
+  }
 
-  return $data['version'];
+  $library = $libraries[$name];
 
-}
+  $path = file_build_uri('insert_field/' . $library['filename']);
 
-/**
- * Remove the specified library.
- */
-function insert_field_ui_require_library($name) {
+  if (file_exists($path)) {
+    return file_create_url($path);
+  }
 
-  $library = libraries_load($name);
+  $temp_path = 'temporary://' . $library['filename'];
 
-  if (empty($library['installed'])) {
-    $args = array();
-    $options = array(
-      'external' => TRUE,
-    );
-    $args['!title'] = l($library['name'], $library['vendor url'], $options);
-    $args['@path'] = 'sites/all/libraries/'.$name.'/';
-    $message = t('!title is missing. Please download and place it in @path', $args);
+  if ($file = system_retrieve_file($library['url'], $temp_path, TRUE, FILE_EXISTS_REPLACE)) {
+    if (md5_file(drupal_realpath($file->uri)) === $library['md5']) {
+      $directory = file_build_uri('insert_field');
+
+      file_prepare_directory($directory, FILE_CREATE_DIRECTORY);
+      file_move($file, $path, FILE_EXISTS_REPLACE);
+    }
+    else {
+      $message = t('Downloaded @name is not valid.', array(
+        '@name' => $library['name'],
+      ));
+      drupal_set_message($message, 'error');
+    }
+  }
+  else {
+    $message = t('Could not download @name.', array(
+      '@name' => $library[$name],
+    ));
     drupal_set_message($message, 'error');
   }
 
+  return file_create_url($path);
 }
 
 /**
@@ -388,11 +395,14 @@ function insert_field_ui_field_tabs($form) {
   $form['#attached']['library'][] = array('system', 'ui.tabs');
 
   // Attach the jQuery Caret Library.
-  insert_field_ui_require_library('jquery.caret');
-  $form['#attached']['libraries_load'][] = array('jquery.caret');
+  $path = insert_field_ui_require_library('jquery_caret');
+  $form['#attached']['js'][$path] = array(
+    'external' => TRUE,
+  );
 
   // Attach the custom Insert Field Javascript.
-  $form['#attached']['js'][] = drupal_get_path('module', 'insert_field_ui') . '/js/insert_field_ui.js';
+  $path = drupal_get_path('module', 'insert_field_ui') . '/js/insert_field_ui.js';
+  $form['#attached']['js'][] = $path;
 
   // Attach the custom Insert Field CSS.
   if ($theme == 'seven') {

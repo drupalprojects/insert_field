@@ -12,6 +12,8 @@ function insert_field_ui_install() {
     ->condition('name', 'insert_field_ui')
     ->execute();
 
+  // Download the jQuery Caret Library.
+  insert_field_ui_require_library('jquery_caret');
 }
 
 /**
@@ -19,11 +21,16 @@ function insert_field_ui_install() {
  * processed after Field Group.
  */
 function insert_field_ui_update_7001() {
-
   // Set module weight to 2.
   db_update('system')
     ->fields(array('weight' => 2))
     ->condition('name', 'insert_field_ui')
     ->execute();
+}
 
+/**
+ * Download the jQuery Caret Library.
+ */
+function insert_field_ui_update_7002() {
+  insert_field_ui_require_library('jquery_caret');
 }
