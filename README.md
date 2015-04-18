@@ -25,9 +25,6 @@ printed rather than the field itself.
    See: https://drupal.org/documentation/install/modules-themes/modules-7
 for further information.
 2. Enable `Insert Field UI` which provides the UI documented.
-3. Download [jQuery Caret Plugin](https://github.com/acdvorak/jquery.caret/) and
-   place it in `sites/all/libraries/jquery.carrot/` once done you should have a
-   file at `sites/all/libraries/jquery.caret/src/jquery.caret.js`
 4. Clear Drupal's Cache.
    See: https://www.drupal.org/documentation/clearing-rebuilding-cache
 
@@ -38,7 +35,6 @@ Insert Field requires the following modules:
 
 Insert Field UI requires the following modules & libraries:
 * [Insert Field](https://www.drupal.org/project/insert_field)
-* [Libraries](https://www.drupal.org/project/libraries)
 * [jQuery Caret Plugin](https://github.com/acdvorak/jquery.caret/)
 
 
